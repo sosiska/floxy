@@ -95,9 +95,10 @@ type WorkflowDefinition struct {
 }
 
 type GraphDefinition struct {
-	Steps      map[string]*StepDefinition `json:"steps"`
-	Start      string                     `json:"start"`
-	DLQEnabled bool                       `json:"dlq_enabled"`
+	Steps           map[string]*StepDefinition `json:"steps"`
+	Start           string                     `json:"start"`
+	DLQEnabled      bool                       `json:"dlq_enabled"`
+	ContinueOnError bool                       `json:"continue_on_error,omitempty"`
 }
 
 type StepDefinition struct {

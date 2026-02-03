@@ -71,3 +71,13 @@ func WithDLQEnabled(enabled bool) BuilderOption {
 		builder.dlqEnabled = enabled
 	}
 }
+
+// WithContinueOnError makes Fork branches independent.
+// When one branch fails, others continue execution instead of being stopped.
+// Workflow completes when all branches finish (completed or failed).
+// Useful for batch processing where partial results are acceptable.
+func WithContinueOnError(enabled bool) BuilderOption {
+	return func(builder *Builder) {
+		builder.continueOnError = enabled
+	}
+}

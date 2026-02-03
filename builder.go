@@ -23,6 +23,7 @@ type Builder struct {
 	subBuilders       []*Builder
 	defaultMaxRetries int
 	dlqEnabled        bool
+	continueOnError   bool
 
 	err error
 }
@@ -549,9 +550,10 @@ func (builder *Builder) Build() (*WorkflowDefinition, error) {
 		Name:    builder.name,
 		Version: builder.version,
 		Definition: GraphDefinition{
-			Start:      builder.startStep,
-			Steps:      builder.steps,
-			DLQEnabled: builder.dlqEnabled,
+			Start:           builder.startStep,
+			Steps:           builder.steps,
+			DLQEnabled:      builder.dlqEnabled,
+			ContinueOnError: builder.continueOnError,
 		},
 	}
 

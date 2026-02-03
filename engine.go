@@ -1216,6 +1216,15 @@ func (engine *Engine) executeJoin(
 	results[KeyOutputs] = outputs
 
 	if len(joinState.Failed) > 0 && joinState.JoinStrategy == JoinStrategyAll {
+		// Check if ContinueOnError is enabled - if so, don't fail the join
+		def, defErr := engine.store.GetWorkflowDefinition(ctx, instance.WorkflowID)
+		if defErr == nil && def.Definition.ContinueOnError {
+			// ContinueOnError: mark as partial success but don't fail
+			results[KeyStatus] = "partial"
+			_ = engine.store.LogEvent(ctx, instance.ID, &step.ID, EventJoinCompleted, results)
+			return json.Marshal(results)
+		}
+
 		results[KeyStatus] = "failed"
 		failedData, _ := json.Marshal(results)
 
@@ -1695,15 +1704,17 @@ func (engine *Engine) handleStepFailure(
 	if def != nil {
 		// Check if this step is part of a fork branch
 		if engine.isStepInForkBranch(ctx, instance.ID, step.StepName, def) {
-			// Stop all active steps in the same fork branch (parallel siblings)
-			if err := engine.stopParallelBranchesInFork(ctx, instance.ID, step.StepName, def); err != nil {
-				slog.Warn("[floxy] failed to stop parallel branches", "error", err)
+			// Stop siblings only if ContinueOnError is disabled
+			if !def.Definition.ContinueOnError {
+				if err := engine.stopParallelBranchesInFork(ctx, instance.ID, step.StepName, def); err != nil {
+					slog.Warn("[floxy] failed to stop parallel branches", "error", err)
+				}
 			}
 		}
 	}
 
-	// Try to rollback to save point before handling failure
-	if def != nil {
+	// Try to rollback to save point before handling failure (skip if ContinueOnError)
+	if def != nil && !def.Definition.ContinueOnError {
 		if rollbackErr := engine.rollbackToSavePointOrRoot(ctx, instance.ID, step, def); rollbackErr != nil {
 			// Log rollback error but continue with failure handling
 			_ = engine.store.LogEvent(ctx, instance.ID, &step.ID, EventStepFailed, map[string]any{
@@ -1711,6 +1722,15 @@ func (engine *Engine) handleStepFailure(
 				KeyError:    fmt.Sprintf("rollback failed: %v", rollbackErr),
 			})
 		}
+	}
+
+	// If ContinueOnError, don't mark instance as failed yet - wait for all branches
+	if def != nil && def.Definition.ContinueOnError {
+		// Just notify join steps and let workflow continue
+		if err := engine.notifyJoinSteps(ctx, instance.ID, step.StepName, false); err != nil {
+			slog.Warn("[floxy] failed to notify join steps", "error", err)
+		}
+		return nil
 	}
 
 	if err := engine.store.UpdateInstanceStatus(ctx, instance.ID, StatusFailed, nil, &errMsg); err != nil {
@@ -2196,14 +2216,18 @@ func (engine *Engine) completeWorkflow(ctx context.Context, instance *WorkflowIn
 	// Check if there are any failed or rolled_back steps
 	// If so, the workflow should be marked as failed, not completed
 	if engine.hasFailedOrRolledBackSteps(ctx, instance.ID) {
-		// REACTIVE FIX: Enqueue completed steps after savepoint for compensation
-		// This is the second line of defense - handles steps that completed despite
-		// preventive measures (stopParallelBranchesInFork).
-		// Race condition scenario: worker already picked up step from queue before we marked it as skipped.
-		// DEFENSE IN DEPTH: Preventive (stop pending/running) + Reactive (rollback completed)
-		if err := engine.enqueueCompletedStepsForRollback(ctx, instance.ID); err != nil {
-			slog.Warn("[floxy] failed to enqueue completed steps for rollback", "error", err)
-			// Continue with marking workflow as failed even if enqueue fails
+		// Don't rollback completed steps if ContinueOnError is enabled
+		def, defErr := engine.store.GetWorkflowDefinition(ctx, instance.WorkflowID)
+		if defErr != nil || !def.Definition.ContinueOnError {
+			// REACTIVE FIX: Enqueue completed steps after savepoint for compensation
+			// This is the second line of defense - handles steps that completed despite
+			// preventive measures (stopParallelBranchesInFork).
+			// Race condition scenario: worker already picked up step from queue before we marked it as skipped.
+			// DEFENSE IN DEPTH: Preventive (stop pending/running) + Reactive (rollback completed)
+			if err := engine.enqueueCompletedStepsForRollback(ctx, instance.ID); err != nil {
+				slog.Warn("[floxy] failed to enqueue completed steps for rollback", "error", err)
+				// Continue with marking workflow as failed even if enqueue fails
+			}
 		}
 
 		// Check if there are any steps enqueued for compensation
