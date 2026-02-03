@@ -958,7 +958,7 @@ func (engine *Engine) executeCompensationStep(ctx context.Context, instance *Wor
 	onFailureStep, ok := def.Definition.Steps[stepDef.OnFailure]
 	if !ok {
 		// No compensation handler, mark as rolled back
-		if err := engine.store.UpdateStep(ctx, step.ID, StepStatusRolledBack, step.Input, nil); err != nil {
+		if err := engine.store.UpdateStep(ctx, step.ID, StepStatusRolledBack, step.Input, step.Error); err != nil {
 			return fmt.Errorf("update step status: %w", err)
 		}
 		return nil
@@ -967,7 +967,7 @@ func (engine *Engine) executeCompensationStep(ctx context.Context, instance *Wor
 	handler, exists := engine.handlers[onFailureStep.Handler]
 	if !exists {
 		// Handler not found, mark as rolled back
-		if err := engine.store.UpdateStep(ctx, step.ID, StepStatusRolledBack, step.Input, nil); err != nil {
+		if err := engine.store.UpdateStep(ctx, step.ID, StepStatusRolledBack, step.Input, step.Error); err != nil {
 			return fmt.Errorf("update step status: %w", err)
 		}
 		return nil
@@ -1034,7 +1034,7 @@ func (engine *Engine) executeCompensationStep(ctx context.Context, instance *Wor
 	}
 
 	// Compensation successful, mark as rolled back
-	if err := engine.store.UpdateStep(ctx, step.ID, StepStatusRolledBack, step.Input, nil); err != nil {
+	if err := engine.store.UpdateStep(ctx, step.ID, StepStatusRolledBack, step.Input, step.Error); err != nil {
 		return fmt.Errorf("update step status: %w", err)
 	}
 
@@ -2084,7 +2084,7 @@ func (engine *Engine) enqueueCompletedStepsForRollback(ctx context.Context, inst
 				stepsToRollback = append(stepsToRollback, step)
 			} else {
 				// No compensation handler, just mark as rolled_back
-				if err := engine.store.UpdateStep(ctx, step.ID, StepStatusRolledBack, step.Input, nil); err != nil {
+				if err := engine.store.UpdateStep(ctx, step.ID, StepStatusRolledBack, step.Input, step.Error); err != nil {
 					slog.Warn("[floxy] failed to mark step as rolled_back", "step_id", step.ID, "error", err)
 				}
 				_ = engine.store.LogEvent(ctx, instanceID, &step.ID, EventStepCompleted, map[string]any{
@@ -2098,7 +2098,7 @@ func (engine *Engine) enqueueCompletedStepsForRollback(ctx context.Context, inst
 			if ok && stepDef.OnFailure != "" {
 				stepsToRollback = append(stepsToRollback, step)
 			} else {
-				if err := engine.store.UpdateStep(ctx, step.ID, StepStatusRolledBack, step.Input, nil); err != nil {
+				if err := engine.store.UpdateStep(ctx, step.ID, StepStatusRolledBack, step.Input, step.Error); err != nil {
 					slog.Warn("[floxy] failed to mark step as rolled_back", "step_id", step.ID, "error", err)
 				}
 				_ = engine.store.LogEvent(ctx, instanceID, &step.ID, EventStepCompleted, map[string]any{
@@ -2527,7 +2527,7 @@ func (engine *Engine) rollbackStep(ctx context.Context, step *WorkflowStep, def 
 	onFailureStep, ok := def.Definition.Steps[stepDef.OnFailure]
 	if !ok {
 		// No compensation handler, mark as rolled back directly
-		if err := engine.store.UpdateStep(ctx, step.ID, StepStatusRolledBack, step.Input, nil); err != nil {
+		if err := engine.store.UpdateStep(ctx, step.ID, StepStatusRolledBack, step.Input, step.Error); err != nil {
 			return fmt.Errorf("update step status: %w", err)
 		}
 
