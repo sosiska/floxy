@@ -129,12 +129,14 @@ func Test_handleStepFailure_DLQEnabled_NoRetry(t *testing.T) {
 	stepErr := errors.New("bad")
 	errStr := stepErr.Error()
 
-	// 1) Update step to paused with error
-	store.EXPECT().UpdateStep(mock.Anything, step.ID, StepStatusPaused, json.RawMessage(nil), &errStr).Return(nil)
-	// 2) Log failed with reason dlq
-	store.EXPECT().LogEvent(mock.Anything, instance.ID, &step.ID, EventStepFailed, mock.Anything).Return(nil)
-	// 3) First GetWorkflowDefinition inside handleStepFailure to check DLQ flag
+	// 0) First GetWorkflowDefinition inside handleStepFailure to check DLQ flag
 	store.EXPECT().GetWorkflowDefinition(mock.Anything, def.ID).Return(def, nil).Maybe()
+	// 1) Lock instance to prevent deadlock
+	store.EXPECT().LockInstance(mock.Anything, instance.ID).Return(nil)
+	// 2) Update step to paused with error
+	store.EXPECT().UpdateStep(mock.Anything, step.ID, StepStatusPaused, json.RawMessage(nil), &errStr).Return(nil)
+	// 3) Log failed with reason dlq
+	store.EXPECT().LogEvent(mock.Anything, instance.ID, &step.ID, EventStepFailed, mock.Anything).Return(nil)
 	// 4) notifyJoinSteps (no joins) -> GetInstance, GetWorkflowDefinition, GetStepsByInstance
 	store.EXPECT().GetInstance(mock.Anything, instance.ID).Return(instance, nil)
 	store.EXPECT().GetWorkflowDefinition(mock.Anything, def.ID).Return(def, nil)

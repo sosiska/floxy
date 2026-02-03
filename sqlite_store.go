@@ -1123,6 +1123,10 @@ func (s *SQLiteStore) PauseActiveStepsAndClearQueue(ctx context.Context, instanc
 	return err
 }
 
+func (s *SQLiteStore) LockInstance(ctx context.Context, instanceID int64) error {
+	return nil
+}
+
 func (s *SQLiteStore) CleanupOldWorkflows(ctx context.Context, daysToKeep int) (int64, error) {
 	cutoff := time.Now().AddDate(0, 0, -daysToKeep)
 	// delete related rows first

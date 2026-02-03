@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/lib/pq"
 )
@@ -1595,6 +1596,28 @@ func (store *StoreImpl) PauseActiveStepsAndClearQueue(ctx context.Context, insta
 		return err
 	}
 
+	return nil
+}
+
+func (store *StoreImpl) LockInstance(ctx context.Context, instanceID int64) error {
+	executor := store.getExecutor(ctx)
+
+	_, _ = executor.Exec(ctx, "SAVEPOINT before_lock")
+
+	_, err := executor.Exec(ctx,
+		"SELECT 1 FROM workflows.workflow_instances WHERE id = $1 FOR UPDATE NOWAIT",
+		instanceID)
+
+	if err != nil {
+		_, _ = executor.Exec(ctx, "ROLLBACK TO SAVEPOINT before_lock")
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "55P03" {
+			return ErrLockNotAvailable
+		}
+		return err
+	}
+
+	_, _ = executor.Exec(ctx, "RELEASE SAVEPOINT before_lock")
 	return nil
 }
 

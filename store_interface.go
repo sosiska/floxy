@@ -105,6 +105,9 @@ type Store interface {
 	ListDeadLetters(ctx context.Context, offset int, limit int) ([]DeadLetterRecord, int64, error)
 	GetDeadLetterByID(ctx context.Context, id int64) (*DeadLetterRecord, error)
 	PauseActiveStepsAndClearQueue(ctx context.Context, instanceID int64) error
+	// LockInstance acquires an exclusive lock on the instance row.
+	// Uses FOR UPDATE NOWAIT - returns error if lock is not available.
+	LockInstance(ctx context.Context, instanceID int64) error
 
 	// Cleanup methods
 	CleanupOldWorkflows(ctx context.Context, daysToKeep int) (int64, error)

@@ -5,5 +5,6 @@ import (
 )
 
 var (
-	ErrEntityNotFound = errors.New("entity not found")
+	ErrEntityNotFound   = errors.New("entity not found")
+	ErrLockNotAvailable = errors.New("lock not available")
 )

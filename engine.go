@@ -1588,6 +1588,21 @@ func (engine *Engine) handleStepFailure(
 
 	// If DLQ mode is enabled, pause instead of failing and skip rollback
 	if def, defErr := engine.store.GetWorkflowDefinition(ctx, instance.WorkflowID); defErr == nil && def.Definition.DLQEnabled {
+		// Lock instance to prevent deadlock with parallel steps
+		if err := engine.store.LockInstance(ctx, instance.ID); err != nil {
+			if errors.Is(err, ErrLockNotAvailable) {
+				// Lock busy - another worker handling DLQ, just save our error
+				_ = engine.store.UpdateStep(ctx, step.ID, StepStatusPaused, nil, &errMsg)
+				_ = engine.store.LogEvent(ctx, instance.ID, &step.ID, EventStepFailed, map[string]any{
+					KeyStepName: step.StepName,
+					KeyError:    errMsg,
+					KeyReason:   "dlq",
+				})
+				return nil
+			}
+			return fmt.Errorf("lock instance: %w", err)
+		}
+
 		// Mark step as paused with error
 		if err := engine.store.UpdateStep(ctx, step.ID, StepStatusPaused, nil, &errMsg); err != nil {
 			return fmt.Errorf("update step (paused): %w", err)

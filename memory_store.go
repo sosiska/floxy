@@ -1136,6 +1136,10 @@ func (s *MemoryStore) PauseActiveStepsAndClearQueue(ctx context.Context, instanc
 	return nil
 }
 
+func (s *MemoryStore) LockInstance(ctx context.Context, instanceID int64) error {
+	return nil
+}
+
 func (s *MemoryStore) CleanupOldWorkflows(ctx context.Context, daysToKeep int) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

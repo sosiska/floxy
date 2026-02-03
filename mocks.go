@@ -3657,6 +3657,63 @@ func (_c *MockStore_ListDeadLetters_Call) RunAndReturn(run func(ctx context.Cont
 	return _c
 }
 
+// LockInstance provides a mock function for the type MockStore
+func (_mock *MockStore) LockInstance(ctx context.Context, instanceID int64) error {
+	ret := _mock.Called(ctx, instanceID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LockInstance")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64) error); ok {
+		r0 = returnFunc(ctx, instanceID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockStore_LockInstance_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LockInstance'
+type MockStore_LockInstance_Call struct {
+	*mock.Call
+}
+
+// LockInstance is a helper method to define mock.On call
+//   - ctx context.Context
+//   - instanceID int64
+func (_e *MockStore_Expecter) LockInstance(ctx interface{}, instanceID interface{}) *MockStore_LockInstance_Call {
+	return &MockStore_LockInstance_Call{Call: _e.mock.On("LockInstance", ctx, instanceID)}
+}
+
+func (_c *MockStore_LockInstance_Call) Run(run func(ctx context.Context, instanceID int64)) *MockStore_LockInstance_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_LockInstance_Call) Return(err error) *MockStore_LockInstance_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockStore_LockInstance_Call) RunAndReturn(run func(ctx context.Context, instanceID int64) error) *MockStore_LockInstance_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // LogEvent provides a mock function for the type MockStore
 func (_mock *MockStore) LogEvent(ctx context.Context, instanceID int64, stepID *int64, eventType string, payload any) error {
 	ret := _mock.Called(ctx, instanceID, stepID, eventType, payload)
